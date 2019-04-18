@@ -1,0 +1,10 @@
+<launch>
+    <include file="$(find turtlebot3_camera)/launch/cameraUSB_remote.launch" />
+    <include file="$(find turtlebot3_camera)/launch/colorTrackingUSB.launch" />
+
+    <node name="target_navigation_usb"
+          pkg="turtlebot3_odometry"
+          type="target_navigationCamUSB_single.py"
+          args=""
+          output="screen"/>
+</launch>

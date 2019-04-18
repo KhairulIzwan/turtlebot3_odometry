@@ -48,7 +48,7 @@ class navigation_node:
         # self.imgROI_sub = rospy.Subscriber("/roi_Green", detailROI, self.getGreenROI)
 
         """  Subscribe to the red roi topic """
-        self.imgROI_sub = rospy.Subscriber("/roi_Red", detailROI, self.getRedROI)
+        self.imgROI_sub = rospy.Subscriber("/roi_Red", detailROI, self.getROI)
 
         """ Subscribe to the camera info topic """
         self.imgRaw_sub = rospy.Subscriber("/camUSB/camera_info", CameraInfo, self.getCameraInfo)
@@ -60,92 +60,60 @@ class navigation_node:
         self.image_width = msg.width    # 320
         self.image_height = msg.height  # 240
 
-    """ Getting green colored ROI info -- width, height, and etc """
-    def getGreenROI(self, msg):
-        self.colorName_Green = msg.colorName
-        self.offsetX_Green = msg.offsetX
-        self.offsetY_Green = msg.offsetY
-        self.width_Green = msg.width
-        self.height_Green = msg.height
-        self.x_Green = msg.x
-        self.y_Green = msg.y
-        self.radius_Green = msg.radius
+    """ Getting colored ROI info -- width, height, and etc """
+    def getROI(self, msg):
+        self.colorName = msg.colorName
+        self.offsetX = msg.offsetX
+        self.offsetY = msg.offsetY
+        self.width = msg.width
+        self.height = msg.height
+        self.x = msg.x
+        self.y = msg.y
+        self.radius = msg.radius
 
-        self.ballGreenTrack()
+        self.roiTrack()
 
-    """ Getting green colored ROI info -- width, height, and etc """
-    def getRedROI(self, msg):
-        self.colorName_Red = msg.colorName
-        self.offsetX_Red = msg.offsetX
-        self.offsetY_Red = msg.offsetY
-        self.width_Red = msg.width
-        self.height_Red = msg.height
-        self.x_Red = msg.x
-        self.y_Red = msg.y
-        self.radius_Red = msg.radius
-
-        self.ballRedTrack()
-
-    def ballGreenTrack(self):
-        if self.colorName_Green is not None:
-            rospy.loginfo(self.colorName_Green)
-
-    def ballRedTrack(self):
+    def roiTrack(self):
         self.spdNavi = Twist()
 
         """ Check to see if we have lost the ROI. """
-        if self.width_Red == 0 or self.height_Red == 0 or self.width_Red > self.image_width / 2 or self.height_Red > self.image_height / 2:
+        if self.width == 0 or self.height == 0 or self.width > self.image_width / 2 or self.height > self.image_height / 2:
             self.spdNavi.linear.x = 0.0
-            # self.spdNavi.linear.y = 0.0
-            # self.spdNavi.linear.z = 0.0
+            self.spdNavi.linear.y = 0.0
+            self.spdNavi.linear.z = 0.0
 
-            # self.spdNavi.angular.x = 0.0
-            # self.spdNavi.angular.y = 0.0
+            self.spdNavi.angular.x = 0.0
+            self.spdNavi.angular.y = 0.0
             self.spdNavi.angular.z = 0.0
 
             rospy.logerr("STOP!")
             return
 
         """ Compute the center of the ROI """
-        COG_x = self.offsetX_Red + self.width_Red / 2 - self.image_width / 2
-        COG_y = self.offsetY_Red + self.height_Red / 2 - self.image_height / 2
-        # COG_y = self.y_Red
-
-        # rospy.loginfo([COG_x, COG_y])
+        COG_x = self.offsetX + self.width / 2 - self.image_width / 2
+        COG_y = self.offsetY + self.height / 2 - self.image_height / 2
 
         """ Pan the camera only if the displacement of the COG exceeds the threshold. """
         if abs(COG_x) > self.pan_threshold:
-            """ Set the pan speed proportion to the displacement of the horizontal displacement
-                of the target. """
-            # self.head_cmd.velocity[0] = self.k_pan * abs(COG_x) / float(self.image_width)
-            # rospy.loginfo([COG_x, COG_y, "ANGULAR SPEED"])
+            """ Set the pan speed proportion to the displacement of the horizontal displacement of the target. """
             self.spdNavi.angular.z = 0.5
 
-            """ Set the target position to one of the min or max positions--we'll never
-                get there since we are tracking using speed. """
+            """ Set the target position to one of the min or max positions--we'll never get there since we are tracking using speed. """
             if COG_x > 0:
-                # self.head_cmd.position[0] = self.min_pan
-                # rospy.loginfo([COG_x, COG_y, "NEGATIVE ANGULAR SPEED"])
                 self.spdNavi.angular.z = -self.spdNavi.angular.z
             else:
-                # self.head_cmd.position[0] = self.max_pan
                 self.spdNavi.angular.z = +self.spdNavi.angular.z
         else:
-            # self.head_cmd.velocity[0] = 0.0001
             self.spdNavi.angular.z = 0
 
 
         """ Tilt the camera only if the displacement of the COG exceeds the threshold. """
         if abs(COG_y) > self.tilt_threshold:
-            """ Set the tilt speed proportion to the displacement of the vertical displacement
-                of the target. """
-            # self.head_cmd.velocity[1] = self.k_tilt * abs(COG_y) / float(self.image_height)
+            """ Set the tilt speed proportion to the displacement of the vertical displacement of the target. """
             self.spdNavi.linear.x = 0.1
 
-            """ Set the target position to one of the min or max positions--we'll never
-                get there since we are tracking using speed. """
+            """ Set the target position to one of the min or max positions--we'll never get there since we are tracking using speed. """
             if COG_y < 0:
-                # self.head_cmd.position[1] = self.min_tilt
                 self.spdNavi.linear.x = +self.spdNavi.linear.x
             else:
                 # self.head_cmd.position[1] = self.max_tilt
@@ -153,27 +121,8 @@ class navigation_node:
         else:
             self.spdNavi.linear.x = 0
 
-        # rospy.loginfo([COG_x, COG_y, self.linearSpd, self.angularSpd])
-        # rospy.loginfo([COG_x, COG_y, self.spdNavi.linear.x])
-        # rospy.loginfo([COG_x, COG_y, self.spdNavi.angular.z])
         rospy.loginfo([COG_x, COG_y, self.spdNavi.linear.x, self.spdNavi.angular.z])
         self.navi_pub.publish(self.spdNavi)
-
-        # except:
-        #     print(e)
-        #
-        # finally:
-        #     self.spdNavi = Twist()
-        #
-        #     self.spdNavi.linear.x = 0.0
-        #     self.spdNavi.linear.y = 0.0
-        #     self.spdNavi.linear.z = 0.0
-        #
-        #     self.spdNavi.angular.x = 0.0
-        #     self.spdNavi.angular.y = 0.0
-        #     self.spdNavi.angular.z = 0.0
-        #
-        #     self.navi_pub.publish(self.spdNavi)
 
     def shutdown(self):
         try:
